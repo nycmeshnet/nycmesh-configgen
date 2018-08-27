@@ -4,14 +4,14 @@ import generateScript from "./nycmesh-omnitik-v3.2.js";
 class App extends PureComponent {
   state = {
     config: {
-      nodenumber: undefined, // 1111
-      bgpasn: undefined, // 61111
-      ipprefix: undefined, // "10.70.111"
-      iptenantsrange: undefined, // 10.70.111.5-10.70.111.119
-      iptenantsgw: undefined, // 10.70.111.1
-      ippublicrange: undefined, // 10.70.111.130-10.70.111.180
-      ippublicgw: undefined, // 10.70.111.129
-      dns: undefined // 10.10.10.10,1.1.1.1
+      nodenumber: "", // 1111
+      bgpasn: "", // 61111
+      ipprefix: "", // "10.70.111"
+      iptenantsrange: "", // 10.70.111.5-10.70.111.119
+      iptenantsgw: "", // 10.70.111.1
+      ippublicrange: "", // 10.70.111.130-10.70.111.180
+      ippublicgw: "", // 10.70.111.129
+      dns: "" // 10.10.10.10,1.1.1.1
     }
   };
 
@@ -46,9 +46,12 @@ class App extends PureComponent {
   renderInput(label, id) {
     return (
       <div className="flex items-center justify-between mv2">
-        <label for={id}>{label}</label>
+        <label htmlFor={id}>{label}</label>
         <input
           id={id}
+          required
+          value={this.state.config[id]}
+          spellCheck={false}
           onChange={event =>
             this.setState({
               config: {
