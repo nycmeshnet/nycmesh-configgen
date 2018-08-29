@@ -17,7 +17,7 @@ class App extends PureComponent {
 
   render() {
     return (
-      <div className="absolute top-0 left-0 bottom-0 right-0 flex flex-column flex-row-l justify-between f5">
+      <div className="absolute-l top-0 left-0 bottom-0 right-0 flex flex-column flex-row-l justify-between f5">
         <div className="bg-near-white w-third-l w-100 pa4 unselectable">
           {this.renderForm()}
         </div>
