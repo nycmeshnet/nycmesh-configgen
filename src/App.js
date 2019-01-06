@@ -1,19 +1,101 @@
+import Mustache from "mustache";
 import React, { PureComponent } from "react";
-import generateScript from "./nycmesh-omnitik-v3.2.js";
+import { fetch } from 'whatwg-fetch';
+// import IpSubnetCalculator from "ip-subnet-calculator";
+// import omni from "./nycmesh-omnitik-v3.2-mustache.js"
+// import omni from "./nycmesh-omnitik-v3.2.js"
+
+let repobase = "https://api.github.com/repos/nycmeshnet/nycmesh-configs/"
 
 class App extends PureComponent {
   state = {
-    config: {
-      nodenumber: "", // 1111
-      bgpasn: "", // 61111
-      ipprefix: "", // "10.70.111"
-      iptenantsrange: "", // 10.70.111.5-10.70.111.119
-      iptenantsgw: "", // 10.70.111.1
-      ippublicrange: "", // 10.70.111.130-10.70.111.180
-      ippublicgw: "", // 10.70.111.129
-      dns: "" // 10.10.10.10,1.1.1.1
+    config: {},
+    load: {
+      tags: [],
+      version: ["versions"],
+      file: [],
+      config: '',
+      fileobj: {}
     }
   };
+
+  filerender(i) {
+    return Mustache.render(this.state.load['config'],i);
+  }
+
+  filetags() {
+    return Mustache.parse(this.state.load['config']).reduce((acc, i) => !acc.includes(i[1]) && i[0] === "name" ? acc.concat(i[1]) : acc, []);
+  }
+
+  componentDidMount() {
+    // let tags = omni.tags();
+    // config: tags.reduce( (acc, i) => { acc[i] = ""; return acc; } , {})
+    this.setState({
+      load: {
+        ...this.state.load,
+      },
+    })
+    this._loadtags();
+  }
+
+  _loadtags() {
+    fetch(repobase + 'tags', { method: 'get' })
+    .then((r) => r.json())
+    .then((j) => j.map((i) => i.name))
+    .then((tags) => this.setState({
+      config: {
+        ...this.state.config,
+        "version": tags[0]
+      },
+      load: {
+        ...this.state.load,
+        "version": tags
+      }
+    }))
+    .then(() => this._loadfilenames());
+  }
+
+  _loadfilenames() {
+    fetch(repobase + 'git/trees/' + this.state.config.version)
+    .then((r) => r.json())
+    .then((j) => j.tree.filter((i) => i.type === "tree"))
+    .then((j) => j.map((i) =>  
+	    fetch(i.url)
+	    .then((r) => r.json())
+	    .then((j) => j.tree.filter((c) => c.path === "config.rsc.tmpl"))
+	    .then((j) => ({ "path": i.path, "url": j[0].url }) )
+    ))
+    .then((i) => Promise.all(i)
+    	.then((files) => this.setState({
+	      config: {
+	        ...this.state.config,
+	        "file": files.map((f) => f.path)[0]
+	      },
+	      load: {
+	        ...this.state.load,
+	        "fileobj": files.reduce((acc,cur) => { acc[cur['path']] = cur; return acc; }, {}),
+		"file": files.map((f) => f.path)
+	      }
+	    }))
+    )
+    .then(() => this._getfile());
+  }
+
+  _getfile() {
+    fetch(this.state.load['fileobj'][this.state.config['file']]['url'])
+    .then((r) => r.json())
+    .then((j) => j.content)
+    .then((c) => atob(c))
+    .then((config) => this.setState({
+	    config: {
+	      ...this.state.config,
+	    },
+	    load: {
+	      ...this.state.load,
+	      "config": config
+	    }
+    }));
+  }
 
   render() {
     return (
@@ -29,48 +111,50 @@ class App extends PureComponent {
   }
 
   renderForm() {
+    let tags = this.filetags();
+    // { this.state.load.tags.map((t) => this.renderInput(t, t)) }
     return (
       <form className="flex flex-column">
-        {this.renderInput("Node Number", "nodenumber")}
-        {this.renderInput("BGP ASN", "bgpasn")}
-        {this.renderInput("IP Prefix", "ipprefix")}
-        {this.renderInput("IP Tenants Range", "iptenantsrange")}
-        {this.renderInput("IP Tenants Gateway", "iptenantsgw")}
-        {this.renderInput("IP Public Range", "ippublicrange")}
-        {this.renderInput("IP Public Gateway", "ippublicgw")}
-        {this.renderInput("DNS", "dns")}
+        {this.renderInput("Configs Version", "version", this.state.load['version'])}
+        {this.renderInput("File", "file", this.state.load['file'] )}
+        { tags.map((t) => this.renderInput(t, t)) }
       </form>
     );
   }
 
-  renderInput(label, id) {
-    return (
-      <div className="flex items-center justify-between mv2">
-        <label htmlFor={id}>{label}</label>
-        <input
-          id={id}
-          required
-          value={this.state.config[id]}
-          spellCheck={false}
-          onChange={event =>
-            this.setState({
-              config: {
-                ...this.state.config,
-                [id]: event.target.value
-              }
-            })
+  renderInput(label, id, options) {
+    let selectoptions = [];
+    if ( options ) {
+      selectoptions = options.map((c) => ( <option key={c} value={c}>{c}</option>));
+    }
+    let onchangefunc = (event) => {
+        this.setState({
+         config: {
+            ...this.state.config,
+            [id]: event.target.value
           }
-        />
+        });
+    };
+    let p = {
+      id: id,
+      required: "required",
+      value: this.state.config[id],
+      spellCheck: false,
+      key: id
+    };
+    return (
+      <div key={id} className="flex items-center justify-between mv2">
+        <label htmlFor={id}>{label}</label>
+        {options ? ( <select props={p} onChange={onchangefunc}>{selectoptions}</select> ) : ( <input props={p} onChange={onchangefunc}/> ) }
       </div>
     );
   }
 
+  // scriptText
   renderScript() {
-    const { config } = this.state;
-    const scriptText = generateScript(config);
     return (
       <pre className="mv0">
-        <code>{scriptText}</code>
+        <code>{this.filerender(this.state.config)}</code>
       </pre>
     );
   }
