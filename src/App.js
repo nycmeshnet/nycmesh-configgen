@@ -10,19 +10,31 @@ class App extends PureComponent {
     load: {
       tags: [],
       device: [],
-      version: ["versions"],
+      version: [],
       file: [],
-      config: '',
-      fileobj: {}
+      fileobj: [],
+      contents: []
     }
   };
 
+  filecontent() {
+    let url = this.state.load['fileobj'].filter(
+	    (f) => ( f.device === this.state.config['device'] && f.file === this.state.config['file'] )
+    ).map((f) => f.url)[0];
+    let filtered = this.state.load['contents'].filter((c) => c.url === url);
+    if(filtered[0] !== undefined && filtered[0].content !== undefined) { 
+	    return atob(filtered[0].content);
+    } else {
+	    return "";
+    }
+  }
+
   filerender(i) {
-    return Mustache.render(this.state.load['config'],i);
+    return Mustache.render(this.filecontent(),i);
   }
 
   filetags() {
-    return Mustache.parse(this.state.load['config']).reduce((acc, i) => !acc.includes(i[1]) && i[0] === "name" ? acc.concat(i[1]) : acc, []);
+    return Mustache.parse(this.filecontent()).reduce((acc, i) => !acc.includes(i[1]) && i[0] === "name" ? acc.concat(i[1]) : acc, []);
   }
 
   componentDidMount() {
@@ -34,14 +46,14 @@ class App extends PureComponent {
     this._loadversions();
   }
 
-  _loadversions() {
+  _loadversions = (event) => {
+    let v = event !== undefined ? event.target.value : null;
     fetch(repobase + 'tags', { method: 'get' })
     .then((r) => r.json())
     .then((j) => j.map((i) => i.name))
     .then((tags) => this.setState({
       config: {
-        ...this.state.config,
-        "version": tags[0]
+        "version": v || tags[0],
       },
       load: {
         ...this.state.load,
@@ -51,7 +63,8 @@ class App extends PureComponent {
     .then(() => this._loaddevices());
   }
 
-  _loaddevices() {
+  _loaddevices = (event) => {
+    let v = event !== undefined ? event.target.value : null;
     fetch(repobase + 'git/trees/' + this.state.config.version)
     .then((r) => r.json())
     .then((j) => j.tree.filter((i) => i.type === "tree"))
@@ -59,47 +72,40 @@ class App extends PureComponent {
 	    fetch(i.url)
 	    .then((r) => r.json())
 	    .then((j) => j.tree.filter((c) => c.path.match(new RegExp(".tmpl$"))))
-	    .then((j) => ({ "device": i.path, "url": j[0].url, "file": j[0].path }) )
+	    .then((j) => j.map((x) => ({ "device": i.path, "url": x.url, "file": x.path })) )
     ))
     .then((i) => Promise.all(i)
+	.then((j) => j.reduce((a,c) => a.concat(c), []))
         .then((fileobj) => this.setState({
-	      config: {
-	        ...this.state.config,
-	        "device": fileobj.map((f) => f.device)[0],
-	      },
 	      load: {
 	        ...this.state.load,
-		"device": fileobj.map((d) => d.device),
+		"device": fileobj.map((d) => d.device).filter((v,i,a) => a.indexOf(v) === i),
                 "fileobj": fileobj,
 	      }
 	    }))
     )
     .then(() => this.setState({
-      config: {
-	...this.state.config,
-	"file": this.state.load['fileobj'].filter((f) => f.device === this.state.config['device']).map((f) => f.file)[0],
-      },
-      load: {
-	...this.state.load,
-	"file": this.state.load['fileobj'].filter((f) => f.device === this.state.config['device']).map((f) => f.file),
-      }
+	      config: {
+	        ...this.state.config,
+	        "device": v || this.state.load['fileobj'].map((f) => f.device)[0]
+	      },
+    }))
+    .then(() => this.setState({
+	      config: {
+	        ...this.state.config,
+		"file": this.state.load['fileobj'].filter((f) => f.device === this.state.config['device']).map((f) => f.file)[0]
+	      },
     }))
     .then(() => this._getfile());
   }
 
-  _getfile() {
-    fetch(this.state.load['fileobj'].filter((f) => ( f.device === this.state.config['device'] && f.file === this.state.config['file'] )).map((f) => f.url)[0])
-    .then((r) => r.json())
-    .then((j) => j.content)
-    .then((c) => atob(c))
-    .then((config) => this.setState({
-	    config: {
-	      ...this.state.config,
-	    },
-	    load: {
-	      ...this.state.load,
-	      "config": config
-	    }
+  _getfile = () => {
+    Promise.all(this.state.load['fileobj'].map((f) => fetch(f.url).then((r) => r.json())))
+    .then((c) => this.setState({
+      load: {
+        ...this.state.load,
+        "contents": c,
+      }
     }));
   }
 
@@ -139,18 +145,19 @@ class App extends PureComponent {
 
   renderForm() {
     let tags = this.filetags();
+    let files = this.state.load['fileobj'].filter((f) => f.device === this.state.config['device']).map((f) => f.file);
     return (
       <form className="flex flex-column">
-        {this.renderInput("Configs Version", "version", this.state.load['version'])}
-        {this.renderInput("Device", "device", this.state.load['device'] )}
-        {this.renderInput("File", "file", this.state.load['file'] )}
+        {this.renderInput("Configs Version", "version", this.state.load['version'], this._loadversions )}
+        {this.renderInput("Device", "device", this.state.load['device'], this._loaddevices )}
+        {this.renderInput("File", "file", files )}
         { tags.map((t) => this.renderInput(t, t)) }
 	<button onClick={this._save}>Download Config</button>
       </form>
     );
   }
 
-  renderInput(label, id, options) {
+  renderInput(label, id, options, ocf) {
     let selectoptions = [];
     if ( options ) {
       selectoptions = options.map((c) => ( <option key={c} value={c}>{c}</option>));
@@ -162,6 +169,9 @@ class App extends PureComponent {
             [id]: event.target.value
           }
         });
+	if (ocf !== undefined) {
+		ocf(event);
+	}
     };
     let p = {
       id: id,
