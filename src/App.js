@@ -97,6 +97,26 @@ class App extends PureComponent {
     }));
   }
 
+  _save = (event) => {
+	event.preventDefault();
+        var text = this.filerender(this.state.config);
+        var fileName = "config.rsc";
+        var blob = new Blob([text], {
+          type: "text/csv;charset=utf8;"
+        });
+
+        var element = document.createElement("a");
+        document.body.appendChild(element);
+        element.setAttribute("href", window.URL.createObjectURL(blob));
+        element.setAttribute("download", fileName);
+        element.style.display = "";
+
+        element.click();
+
+        document.body.removeChild(element);
+        event.stopPropagation();
+  }
+
   render() {
     return (
       <div className="absolute-l top-0 left-0 bottom-0 right-0 flex flex-column flex-row-l justify-between f5">
@@ -118,6 +138,7 @@ class App extends PureComponent {
         {this.renderInput("Configs Version", "version", this.state.load['version'])}
         {this.renderInput("File", "file", this.state.load['file'] )}
         { tags.map((t) => this.renderInput(t, t)) }
+	<button onClick={this._save}>Download Config</button>
       </form>
     );
   }
