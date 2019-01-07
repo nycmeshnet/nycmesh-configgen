@@ -1,9 +1,6 @@
 import Mustache from "mustache";
 import React, { PureComponent } from "react";
 import { fetch } from 'whatwg-fetch';
-// import IpSubnetCalculator from "ip-subnet-calculator";
-// import omni from "./nycmesh-omnitik-v3.2-mustache.js"
-// import omni from "./nycmesh-omnitik-v3.2.js"
 
 let repobase = "https://api.github.com/repos/nycmeshnet/nycmesh-configs/"
 
@@ -12,6 +9,7 @@ class App extends PureComponent {
     config: {},
     load: {
       tags: [],
+      device: [],
       version: ["versions"],
       file: [],
       config: '',
@@ -28,17 +26,15 @@ class App extends PureComponent {
   }
 
   componentDidMount() {
-    // let tags = omni.tags();
-    // config: tags.reduce( (acc, i) => { acc[i] = ""; return acc; } , {})
     this.setState({
       load: {
         ...this.state.load,
       },
     })
-    this._loadtags();
+    this._loadversions();
   }
 
-  _loadtags() {
+  _loadversions() {
     fetch(repobase + 'tags', { method: 'get' })
     .then((r) => r.json())
     .then((j) => j.map((i) => i.name))
@@ -52,37 +48,47 @@ class App extends PureComponent {
         "version": tags
       }
     }))
-    .then(() => this._loadfilenames());
+    .then(() => this._loaddevices());
   }
 
-  _loadfilenames() {
+  _loaddevices() {
     fetch(repobase + 'git/trees/' + this.state.config.version)
     .then((r) => r.json())
     .then((j) => j.tree.filter((i) => i.type === "tree"))
     .then((j) => j.map((i) =>  
 	    fetch(i.url)
 	    .then((r) => r.json())
-	    .then((j) => j.tree.filter((c) => c.path === "config.rsc.tmpl"))
-	    .then((j) => ({ "path": i.path, "url": j[0].url }) )
+	    .then((j) => j.tree.filter((c) => c.path.match(new RegExp(".tmpl$"))))
+	    .then((j) => ({ "device": i.path, "url": j[0].url, "file": j[0].path }) )
     ))
     .then((i) => Promise.all(i)
-    	.then((files) => this.setState({
+        .then((fileobj) => this.setState({
 	      config: {
 	        ...this.state.config,
-	        "file": files.map((f) => f.path)[0]
+	        "device": fileobj.map((f) => f.device)[0],
 	      },
 	      load: {
 	        ...this.state.load,
-	        "fileobj": files.reduce((acc,cur) => { acc[cur['path']] = cur; return acc; }, {}),
-		"file": files.map((f) => f.path)
+		"device": fileobj.map((d) => d.device),
+                "fileobj": fileobj,
 	      }
 	    }))
     )
+    .then(() => this.setState({
+      config: {
+	...this.state.config,
+	"file": this.state.load['fileobj'].filter((f) => f.device === this.state.config['device']).map((f) => f.file)[0],
+      },
+      load: {
+	...this.state.load,
+	"file": this.state.load['fileobj'].filter((f) => f.device === this.state.config['device']).map((f) => f.file),
+      }
+    }))
     .then(() => this._getfile());
   }
 
   _getfile() {
-    fetch(this.state.load['fileobj'][this.state.config['file']]['url'])
+    fetch(this.state.load['fileobj'].filter((f) => ( f.device === this.state.config['device'] && f.file === this.state.config['file'] )).map((f) => f.url)[0])
     .then((r) => r.json())
     .then((j) => j.content)
     .then((c) => atob(c))
@@ -97,10 +103,11 @@ class App extends PureComponent {
     }));
   }
 
+  _tmplrealname = () => this.state.config.file === undefined ? "config.txt" : this.state.config.file.replace(".tmpl", "")
+
   _save = (event) => {
 	event.preventDefault();
         var text = this.filerender(this.state.config);
-        var fileName = "config.rsc";
         var blob = new Blob([text], {
           type: "text/csv;charset=utf8;"
         });
@@ -108,7 +115,7 @@ class App extends PureComponent {
         var element = document.createElement("a");
         document.body.appendChild(element);
         element.setAttribute("href", window.URL.createObjectURL(blob));
-        element.setAttribute("download", fileName);
+        element.setAttribute("download", this._tmplrealname());
         element.style.display = "";
 
         element.click();
@@ -132,10 +139,10 @@ class App extends PureComponent {
 
   renderForm() {
     let tags = this.filetags();
-    // { this.state.load.tags.map((t) => this.renderInput(t, t)) }
     return (
       <form className="flex flex-column">
         {this.renderInput("Configs Version", "version", this.state.load['version'])}
+        {this.renderInput("Device", "device", this.state.load['device'] )}
         {this.renderInput("File", "file", this.state.load['file'] )}
         { tags.map((t) => this.renderInput(t, t)) }
 	<button onClick={this._save}>Download Config</button>
