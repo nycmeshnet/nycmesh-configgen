@@ -1,252 +1,337 @@
 import Mustache from "mustache";
 import React, { PureComponent } from "react";
 
-let repobase = "https://api.github.com/repos/nycmeshnet/nycmesh-configs/";
+const REPO_BASE = "https://api.github.com/repos/nycmeshnet/nycmesh-configs/";
 
 class App extends PureComponent {
   state = {
-    config: {},
-    load: {
-      tags: [],
-      device: [],
-      version: [],
-      file: [],
-      fileobj: [],
-      contents: []
-    }
+    currentVersion: undefined,
+    currentDevice: undefined,
+    currentTemplate: undefined,
+
+    versions: [],
+    devices: {}, // version: devices
+    templates: {}, // version: device : templates
+    config: {}
   };
-
-  filecontent() {
-    let url = this.state.load["fileobj"]
-      .filter(
-        f =>
-          f.device === this.state.config["device"] &&
-          f.file === this.state.config["file"]
-      )
-      .map(f => f.url)[0];
-    let filtered = this.state.load["contents"].filter(c => c.url === url);
-    if (filtered[0] !== undefined && filtered[0].content !== undefined) {
-      return atob(filtered[0].content);
-    } else {
-      return "";
-    }
-  }
-
-  filerender(i) {
-    return Mustache.render(this.filecontent(), i);
-  }
-
-  filetags() {
-    return Mustache.parse(this.filecontent()).reduce(
-      (acc, i) =>
-        !acc.includes(i[1]) && i[0] === "name" ? acc.concat(i[1]) : acc,
-      []
-    );
-  }
 
   componentDidMount() {
-    this.setState({
-      load: {
-        ...this.state.load
-      }
-    });
-    this._loadversions();
+    this.loadVersions();
   }
 
-  _loadversions = event => {
-    let v = event !== undefined ? event.target.value : null;
-    fetch(repobase + "tags", { method: "get" })
-      .then(r => r.json())
-      .then(j => j.map(i => i.name))
-      .then(tags =>
-        this.setState({
-          config: {
-            version: v || tags[0]
-          },
-          load: {
-            ...this.state.load,
-            version: tags
-          }
-        })
-      )
-      .then(() => this._loaddevices());
-  };
+  componentDidUpdate(prevProps, prevState) {
+    const { currentVersion, currentDevice } = this.state;
+    if (currentVersion && currentVersion !== prevState.currentVersion) {
+      this.loadDevices();
+    }
 
-  _loaddevices = event => {
-    let v = event !== undefined ? event.target.value : null;
-    fetch(repobase + "git/trees/" + this.state.config.version)
-      .then(r => r.json())
-      .then(j => j.tree.filter(i => i.type === "tree"))
-      .then(j =>
-        j.map(i =>
-          fetch(i.url)
-            .then(r => r.json())
-            .then(j => j.tree.filter(c => c.path.match(new RegExp(".tmpl$"))))
-            .then(j =>
-              j.map(x => ({ device: i.path, url: x.url, file: x.path }))
-            )
-        )
-      )
-      .then(i =>
-        Promise.all(i)
-          .then(j => j.reduce((a, c) => a.concat(c), []))
-          .then(fileobj =>
-            this.setState({
-              load: {
-                ...this.state.load,
-                device: fileobj
-                  .map(d => d.device)
-                  .filter((v, i, a) => a.indexOf(v) === i),
-                fileobj: fileobj
-              }
-            })
-          )
-      )
-      .then(() =>
-        this.setState({
-          config: {
-            ...this.state.config,
-            device: v || this.state.load["fileobj"].map(f => f.device)[0]
-          }
-        })
-      )
-      .then(() =>
-        this.setState({
-          config: {
-            ...this.state.config,
-            file: this.state.load["fileobj"]
-              .filter(f => f.device === this.state.config["device"])
-              .map(f => f.file)[0]
-          }
-        })
-      )
-      .then(() => this._getfile());
-  };
+    if (currentDevice && currentDevice !== prevState.currentDevice) {
+      this.loadTemplates();
+    }
+  }
 
-  _getfile = () => {
-    Promise.all(
-      this.state.load["fileobj"].map(f => fetch(f.url).then(r => r.json()))
-    ).then(c =>
-      this.setState({
-        load: {
-          ...this.state.load,
-          contents: c
-        }
+  loadVersions() {
+    get(REPO_BASE + "tags")
+      .then(j => j.map(i => i.name)) // Branch names are version names
+      .then(versions =>
+        this.setState({
+          versions,
+          currentVersion: versions[0]
+        })
+      )
+      .catch(error => console.error(error));
+  }
+
+  loadDevices() {
+    const { currentVersion } = this.state;
+    // Fetch all devices
+    get(REPO_BASE + "git/trees/" + currentVersion)
+      .then(({ tree }) => tree.filter(i => i.type === "tree")) // Folders are devices
+      .then(deviceFolders => {
+        return deviceFolders.map(device => ({
+          name: device.path,
+          URL: device.url
+        }));
       })
+      .then(devices => {
+        this.setState({
+          devices: {
+            ...this.state.devices,
+            [currentVersion]: devices
+          },
+          currentDevice: devices[0].name
+        });
+      })
+      .catch(error => console.error(error));
+  }
+
+  loadTemplates() {
+    const { devices, currentVersion, currentDevice } = this.state;
+    if (!devices) return null;
+    // TODO: Less hacky
+    const matchingDevices = devices[currentVersion].filter(
+      device => device.name === currentDevice
     );
-  };
+    if (!matchingDevices.length) return;
+    const fullCurrentDevice = matchingDevices[0];
+    get(fullCurrentDevice.URL)
+      // List all templates
+      .then(({ tree }) =>
+        tree.filter(file => file.path.match(new RegExp(".tmpl$")))
+      )
+      // Fetch all templates
+      .then(templateFiles => {
+        Promise.all(
+          templateFiles.map(templateFile =>
+            get(templateFile.url).then(({ content }) => ({
+              name: templateFile.path,
+              content
+            }))
+          )
+        ).then(deviceTemplates =>
+          this.setState({
+            templates: {
+              ...this.state.templates,
+              [currentVersion]: {
+                ...this.state.templates[currentVersion],
+                [currentDevice]: deviceTemplates
+              }
+            },
+            currentTemplate: deviceTemplates[0].name
+          })
+        );
+      })
+      .catch(error => console.error(error));
+  }
 
-  _tmplrealname = () =>
-    this.state.config.file === undefined
-      ? "config.txt"
-      : this.state.config.file.replace(".tmpl", "");
+  downloadConfig() {
+    const { config } = this.state;
+    const currentTemplate = this.currentTemplate();
+    if (!currentTemplate) return null;
 
-  _save = event => {
-    event.preventDefault();
-    var text = this.filerender(this.state.config);
-    var blob = new Blob([text], {
-      type: "text/csv;charset=utf8;"
+    const fileName = config.file
+      ? config.file.replace(".tmpl", "")
+      : "config.txt";
+    const { content } = currentTemplate;
+    const configText = Mustache.render(atob(content), config);
+    var blob = new Blob([configText], {
+      type: "text/csv;charset=utf8;" // Why csv??
     });
 
     var element = document.createElement("a");
     document.body.appendChild(element);
     element.setAttribute("href", window.URL.createObjectURL(blob));
-    element.setAttribute("download", this._tmplrealname());
+    element.setAttribute("download", fileName);
     element.style.display = "";
-
     element.click();
-
     document.body.removeChild(element);
-    event.stopPropagation();
-  };
+  }
+
+  // TODO: Less hacky
+  currentTemplate() {
+    const {
+      currentTemplate,
+      currentVersion,
+      currentDevice,
+      templates
+    } = this.state;
+    if (!currentTemplate || !templates) return null;
+    const versionDevices = templates[currentVersion];
+    if (!versionDevices) return null;
+    const currentTemplates = versionDevices[currentDevice];
+    if (!currentTemplates) return null;
+    const matchingTemplates = currentTemplates.filter(
+      template => template.name === currentTemplate
+    );
+    if (!matchingTemplates.length) return null;
+    const fullCurrentTemplate = matchingTemplates[0];
+    return fullCurrentTemplate;
+  }
 
   render() {
     return (
-      <div className="absolute-l top-0 left-0 bottom-0 right-0 flex flex-column flex-row-l justify-between f5">
-        <div className="bg-near-white w-third-l w-100 pa4 unselectable">
-          {this.renderForm()}
-        </div>
-        <div className="w-two-thirds-l w-100 overflow-scroll pa4 bg-bluec">
-          {this.renderScript()}
-        </div>
+      <div className="flex flex-column flex-row-l justify-end f5">
+        {this.renderForm()}
+        {this.renderScript()}
       </div>
     );
   }
 
   renderForm() {
-    let tags = this.filetags();
-    let files = this.state.load["fileobj"]
-      .filter(f => f.device === this.state.config["device"])
-      .map(f => f.file);
     return (
-      <form className="flex flex-column">
-        {this.renderInput(
-          "Configs Version",
-          "version",
-          this.state.load["version"],
-          this._loadversions
-        )}
-        {this.renderInput(
-          "Device",
-          "device",
-          this.state.load["device"],
-          this._loaddevices
-        )}
-        {this.renderInput("File", "file", files)}
-        {tags.map(t => this.renderInput(t, t))}
-        <button onClick={this._save}>Download Config</button>
-      </form>
-    );
-  }
-
-  renderInput(label, id, options, ocf) {
-    let selectoptions = [];
-    if (options) {
-      selectoptions = options.map(c => (
-        <option key={c} value={c}>
-          {c}
-        </option>
-      ));
-    }
-    let onchangefunc = event => {
-      this.setState({
-        config: {
-          ...this.state.config,
-          [id]: event.target.value
-        }
-      });
-      if (ocf !== undefined) {
-        ocf(event);
-      }
-    };
-    let p = {
-      id: id,
-      required: "required",
-      value: this.state.config[id],
-      spellCheck: false,
-      key: id
-    };
-    return (
-      <div key={id} className="flex items-center justify-between mv2">
-        <label htmlFor={id}>{label}</label>
-        {options ? (
-          <select props={p} onChange={onchangefunc}>
-            {selectoptions}
-          </select>
-        ) : (
-          <input props={p} onChange={onchangefunc} />
-        )}
+      <div className="fixed-ns top-0 bottom-0 left-0 bg-near-white w-third-l w-100 pa4 unselectable">
+        <form
+          className="flex flex-column"
+          onSubmit={event => {
+            event.preventDefault();
+            this.downloadConfig();
+          }}
+        >
+          {this.renderVersionInput()}
+          {this.renderDeviceInput()}
+          {this.renderTemplateInput()}
+          {this.renderTagInputs()}
+          {this.renderDownload()}
+        </form>
       </div>
     );
   }
 
-  // scriptText
-  renderScript() {
+  // TODO: Less hacky
+  renderVersionInput() {
+    const { versions, currentVersion } = this.state;
+    if (!versions || !currentVersion) return null;
     return (
-      <pre className="mv0">
-        <code>{this.filerender(this.state.config)}</code>
-      </pre>
+      <div className="flex items-center justify-between mv2">
+        <label htmlFor="device">Configs Version</label>
+        <select
+          name="version"
+          onChange={({ target }) =>
+            this.setState({ currentVersion: target.value })
+          }
+        >
+          {versions.map(version => (
+            <option key={version} value={version}>
+              {version}
+            </option>
+          ))}
+        </select>
+      </div>
     );
+  }
+
+  // TODO: Less hacky
+  renderDeviceInput() {
+    const { devices, currentVersion } = this.state;
+    if (!currentVersion || !devices) return null;
+    const versionDevices = devices[currentVersion];
+    if (!versionDevices) return null;
+    return (
+      <div className="flex items-center justify-between mv2">
+        <label htmlFor="device">Device</label>
+        <select
+          name="device"
+          onChange={({ target }) =>
+            this.setState({ currentDevice: target.value })
+          }
+        >
+          {versionDevices.map(device => (
+            <option key={device.name} value={device.name}>
+              {device.name}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
+  // TODO: Less hacky
+  renderTemplateInput() {
+    const {
+      templates,
+      currentVersion,
+      currentDevice,
+      currentTemplate
+    } = this.state;
+    if (!templates || !currentVersion || !currentDevice || !currentTemplate)
+      return null;
+    const versionDevices = templates[currentVersion];
+    if (!versionDevices) return null;
+    const deviceTemplates = versionDevices[currentDevice];
+    if (!deviceTemplates) return null;
+    return (
+      <div className="flex items-center justify-between mv2">
+        <label htmlFor="device">Template</label>
+        <select
+          name="template"
+          onChange={({ target }) =>
+            this.setState({ currentTemplate: target.value })
+          }
+        >
+          {deviceTemplates.map(template => (
+            <option key={template.name} value={template.name}>
+              {template.name}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
+  // TODO: Less hacky
+  renderTagInputs() {
+    const currentTemplate = this.currentTemplate();
+    if (!currentTemplate) return null;
+    const { content } = currentTemplate;
+
+    // Not sure what this does
+    const tags = Mustache.parse(atob(content)).reduce(
+      (acc, i) =>
+        !acc.includes(i[1]) && i[0] === "name" ? acc.concat(i[1]) : acc,
+      []
+    );
+    return tags.map(tag => this.renderInput(tag, tag));
+  }
+
+  renderInput(label, id, options, ocf) {
+    const { config } = this.state;
+    return (
+      <div key={id} className="flex items-center justify-between mv2">
+        <label htmlFor={id}>{label}</label>
+        <input
+          name={id}
+          required
+          spellCheck={false}
+          value={config[id]}
+          className="flex w-100 ml3 mw5"
+          onChange={({ target }) =>
+            this.setState({
+              config: {
+                ...this.state.config,
+                [id]: target.value
+              }
+            })
+          }
+        />
+      </div>
+    );
+  }
+
+  renderDownload() {
+    const { currentVersion, currentTemplate, currentDevice } = this.state;
+    if (!currentVersion || !currentTemplate || !currentDevice) return null;
+
+    return (
+      <button className="pa3 bn bg-blue white br2 fw5 mt3 pointer">
+        Download Config
+      </button>
+    );
+  }
+
+  renderScript() {
+    const { config } = this.state;
+    const currentTemplate = this.currentTemplate();
+    if (!currentTemplate) return null;
+    return (
+      <div className="w-two-thirds-l w-100 overflow-x-scroll pa4 bg-bluec">
+        <pre className="mv0">
+          <code>{Mustache.render(atob(currentTemplate.content), config)}</code>
+        </pre>
+      </div>
+    );
+  }
+}
+
+function get(URL) {
+  try {
+    return fetch(URL).then(response => {
+      if (response.status !== 200) {
+        alert("GitHub request failed!");
+      }
+      return response.json();
+    });
+  } catch (error) {
+    alert(error);
   }
 }
 
