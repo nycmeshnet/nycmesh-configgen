@@ -24,6 +24,7 @@ export default class Options extends PureComponent {
 	componentDidUpdate(prevProps) {
 		const {
 			options,
+			versions,
 			devices,
 			templates,
 			history,
@@ -41,6 +42,8 @@ export default class Options extends PureComponent {
 			template && template !== prevProps.options.template;
 		const configChanged =
 			versionChanged || deviceChanged || templateChanged;
+		const everythingLoaded =
+			version && device && template && versions && devices && templates;
 
 		if (versionChanged) {
 			loadDevices(version);
@@ -50,7 +53,7 @@ export default class Options extends PureComponent {
 			loadTemplates(device, version);
 		}
 
-		if (configChanged && version && device && template) {
+		if (configChanged && everythingLoaded) {
 			history.push({
 				search: qs.stringify({
 					version,
