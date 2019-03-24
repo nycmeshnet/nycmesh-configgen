@@ -4,9 +4,13 @@
   "private": true,
   "dependencies": {
     "mustache": "^3.0.0",
+    "qs": "^6.7.0",
     "react": "^16.4.2",
     "react-dom": "^16.4.2",
+    "react-redux": "^6.0.1",
+    "react-router-dom": "^5.0.0",
     "react-scripts": "1.1.5",
+    "redux-starter-kit": "^0.4.3",
     "tachyons": "^4.11.1"
   },
   "scripts": {
