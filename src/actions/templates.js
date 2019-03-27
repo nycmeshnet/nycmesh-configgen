@@ -34,11 +34,16 @@ export function loadTemplates(device, version, dispatch) {
 		return;
 	}
 	get(device.URL)
-		.then(({ tree }) =>
-			tree.filter(file => file.path.match(new RegExp(".tmpl$")))
-		)
-		.then(templateFiles => {
-			// Fetch each template file
+		.then(({ tree }) => {
+			const templateFiles = tree.filter(file =>
+				file.path.match(/.tmpl$/)
+			);
+			const metaFiles = tree.filter(file => file.path === "meta.json");
+			const metaFile = metaFiles.length ? metaFiles[0] : null;
+			return { templateFiles, metaFile };
+		})
+		.then(({ templateFiles, metaFile }) => {
+			// Fetch device template files
 			Promise.all(
 				templateFiles.map(templateFile =>
 					get(templateFile.url).then(({ content }) => ({
@@ -47,7 +52,32 @@ export function loadTemplates(device, version, dispatch) {
 					}))
 				)
 			).then(templates => {
-				dispatch({ type: SET_TEMPLATES, templates, device, version });
+				// Fetch device metadata
+				if (metaFile) {
+					get(metaFile.url).then(({ content }) => {
+						const contentText = atob(content);
+						try {
+							const deviceMetadata = JSON.parse(contentText);
+							console.log(deviceMetadata);
+							// TODO: Handle metadata
+							dispatch({
+								type: SET_TEMPLATES,
+								templates,
+								device,
+								version
+							});
+						} catch (error) {
+							console.error(error);
+						}
+					});
+				} else {
+					dispatch({
+						type: SET_TEMPLATES,
+						templates,
+						device,
+						version
+					});
+				}
 			});
 		})
 		.catch(error => console.error(error));
