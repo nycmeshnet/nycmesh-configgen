@@ -1,7 +1,7 @@
 import React, { PureComponent } from "react";
 import Mustache from "mustache";
 
-export default class Component extends PureComponent {
+export default class Script extends PureComponent {
 	render() {
 		const { config, template } = this.props;
 		if (!template) return null;

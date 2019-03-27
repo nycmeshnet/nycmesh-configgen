@@ -3,14 +3,15 @@ import Mustache from "mustache";
 import qs from "qs";
 
 export default class Options extends PureComponent {
-	componentDidMount() {
+	constructor(props) {
+		super(props);
 		const {
-			loadVersions,
 			location,
 			setVersion,
 			setDevice,
-			setTemplate
-		} = this.props;
+			setTemplate,
+			loadVersions
+		} = props;
 
 		// Set version from params
 		const params = qs.parse(location.search.replace("?", ""));
@@ -18,7 +19,7 @@ export default class Options extends PureComponent {
 			setVersion(params.version);
 		}
 
-		this.props.loadVersions();
+		loadVersions();
 	}
 
 	componentDidUpdate(prevProps) {
@@ -209,7 +210,7 @@ export default class Options extends PureComponent {
 					name={key}
 					required
 					spellCheck={false}
-					value={config[key]}
+					value={config[key] || ""}
 					className="flex w-100 ml3 mw5"
 					onChange={({ target }) => setValue(key, target.value)}
 				/>
@@ -225,21 +226,24 @@ export default class Options extends PureComponent {
 		// TODO: Validate tag inputs
 
 		return (
-			<button className="pa3 bn bg-blue white br2 fw5 mt3 pointer">
-				Download Config
-			</button>
+			<input
+				type="submit"
+				value="Download Config"
+				className="pa3 bn bg-blue white br2 fw5 mt3 pointer"
+			/>
 		);
 	}
 
 	downloadConfig() {
-		const { config, template } = this.props;
+		const { config, options } = this.props;
+		const { template } = options;
 		if (!template) return null;
 
-		const fileName = config.file
-			? config.file.replace(".tmpl", "")
+		const { name, content } = template;
+		const fileName = name
+			? name.replace("nnnn", config.nodenumber).replace(".tmpl", "")
 			: "config.txt";
-		const { content } = template;
-		const configText = Mustache.render(template, config);
+		const configText = Mustache.render(content, config);
 		var blob = new Blob([configText], {
 			type: "text/csv;charset=utf8;" // Why csv??
 		});
