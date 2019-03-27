@@ -5,13 +5,7 @@ import qs from "qs";
 export default class Options extends PureComponent {
 	constructor(props) {
 		super(props);
-		const {
-			location,
-			setVersion,
-			setDevice,
-			setTemplate,
-			loadVersions
-		} = props;
+		const { location, setVersion, loadVersions } = props;
 
 		// Set version from params
 		const params = qs.parse(location.search.replace("?", ""));

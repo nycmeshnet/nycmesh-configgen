@@ -1,6 +1,6 @@
 import { createReducer } from "redux-starter-kit";
-import { SET_VERSION, SET_DEVICE, SET_TEMPLATE } from "../actions/options";
-import { SET_VERSIONS, SET_DEVICES, SET_TEMPLATES } from "../actions/templates";
+// import { SET_VERSION, SET_DEVICE, SET_TEMPLATE } from "../actions/options";
+// import { SET_VERSIONS, SET_DEVICES, SET_TEMPLATES } from "../actions/templates";
 
 export default createReducer(
   {

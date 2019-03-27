@@ -1,5 +1,5 @@
 import { createReducer } from "redux-starter-kit";
-import { SET_VALUE } from "../actions/config";
+// import { SET_VALUE } from "../actions/config";
 
 export default createReducer(
 	{},

@@ -1,5 +1,5 @@
 import { createReducer } from "redux-starter-kit";
-import { SET_DEVICES } from "../actions/templates";
+// import { SET_DEVICES } from "../actions/templates";
 
 export default createReducer(
 	{},
