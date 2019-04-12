@@ -223,7 +223,7 @@ export default class Options extends PureComponent {
 			<input
 				type="submit"
 				value="Download Config"
-				className="pa3 bn bg-blue white br2 fw5 mt3 pointer"
+				className="pa2 fw5 mt3 pointer"
 			/>
 		);
 	}
