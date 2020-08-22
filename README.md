@@ -1,6 +1,6 @@
 # Configgen: NYC Mesh Configuration Generator
 
-Configgen helps users configure their wireless devices to connect to NYC Mesh. It loads configuration templates from our [https://github.com/nycmeshnet/nycmesh-configs](nycmesh-configs) repo using Github's API and allows users to customize certain fields.
+Configgen helps users configure their wireless devices to connect to NYC Mesh. It loads configuration templates from our [nycmeshnet/nycmesh-configs](https://github.com/nycmeshnet/nycmesh-configs) repo using Github's API and allows users to customize certain fields.
 
 It is a React app which we currently host at Netlify.
 
