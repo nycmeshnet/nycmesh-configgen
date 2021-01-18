@@ -13,13 +13,13 @@ function App() {
   const [devices, setDevices] = useState();
   const [templates, setTemplates] = useState();
 
-  // TODO: Handle url params
-
   const [selectedVersion, setSelectedVersion] = useState();
   const [selectedDevice, setSelectedDevice] = useState();
   const [selectedTemplate, setSelectedTemplate] = useState();
 
   const [tagValues, setTagValues] = useState({});
+
+  const params = qs.parse(window.location.search.replace("?", ""));
 
   // Fetch versions
   useEffect(() => {
@@ -27,7 +27,8 @@ function App() {
     async function asyncFunc() {
       const versions = await fetchVersions();
       setVersions(versions);
-      setSelectedVersion(versions[0]);
+      const paramVersion = versions.filter((v) => v === params.version)[0];
+      setSelectedVersion(paramVersion || versions[0]);
     }
   }, []);
 
@@ -38,7 +39,8 @@ function App() {
     async function asyncFunc() {
       const devices = await fetchDevices(selectedVersion);
       setDevices(devices);
-      setSelectedDevice(devices[0]);
+      const paramDevice = devices.filter((d) => d.name === params.device)[0];
+      setSelectedDevice(paramDevice || devices[0]);
     }
   }, [selectedVersion]);
 
@@ -48,8 +50,11 @@ function App() {
     asyncFunc();
     async function asyncFunc() {
       const templates = await fetchTemplates(selectedVersion, selectedDevice);
+      const paramTemplate = templates.filter(
+        (t) => t.name === params.template
+      )[0];
       setTemplates(templates);
-      setSelectedTemplate(templates[0]);
+      setSelectedTemplate(paramTemplate || templates[0]);
     }
   }, [selectedVersion, selectedDevice]);
 
@@ -67,15 +72,24 @@ function App() {
     setSelectedTemplate();
     setDevices();
     setTemplates();
+    setQuery({ version });
   };
 
   const onDeviceSelected = (device) => {
     setSelectedDevice(device);
     setSelectedTemplate();
     setTemplates();
+    setQuery({ version: selectedVersion, device: device.name });
   };
 
-  const onTemplateSelected = (template) => setSelectedTemplate(template);
+  const onTemplateSelected = (template) => {
+    setSelectedTemplate(template);
+    setQuery({
+      version: selectedVersion,
+      device: selectedDevice.name,
+      template: template.name,
+    });
+  };
 
   const onTagChange = (key, value) => {
     setTagValues({ ...tagValues, [key]: value });
@@ -101,12 +115,7 @@ function App() {
             onDeviceSelected={onDeviceSelected}
             onTemplateSelected={onTemplateSelected}
           />
-          <Tags
-            template={selectedTemplate}
-            tags={tags}
-            tagValues={tagValues}
-            onChange={onTagChange}
-          />
+          <Tags tags={tags} tagValues={tagValues} onChange={onTagChange} />
           {selectedVersion && selectedDevice && selectedTemplate && (
             <input
               type="submit"
@@ -124,6 +133,14 @@ function App() {
 }
 
 export default App;
+
+function setQuery(params) {
+  window.history.replaceState(
+    null,
+    null,
+    window.location.pathname + "?" + qs.stringify(params)
+  );
+}
 
 function downloadConfig(template, tags) {
   if (!template || !tags) return null;
