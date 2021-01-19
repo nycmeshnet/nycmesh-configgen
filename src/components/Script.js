@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import Mustache from "mustache";
-import highlight from "highlight.js";
+import { highlightBlock } from "highlight.js";
 
 function Script({ template, tagValues }) {
   if (!template || !tagValues) return null;
@@ -20,7 +20,7 @@ function Highlight({ children, className, language }) {
 
   useEffect(() => {
     if (!codeRef.current) return;
-    highlight.highlightBlock(codeRef.current);
+    highlightBlock(codeRef.current);
   }, [codeRef, children]);
 
   return (
