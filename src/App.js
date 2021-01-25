@@ -124,6 +124,12 @@ function App() {
             />
           )}
         </form>
+		
+		<br /><br />
+		If your install number is over 8000 you need to ask us for a NN (Network Number)
+		<br /><br />
+		You can check your NN <a href="https://docs.nycmesh.net/installs/nn/">here</a>
+		
       </div>
       <div className="w-100 h-100 overflow-y-scroll">
         <Script template={selectedTemplate} tagValues={tagValues} />
