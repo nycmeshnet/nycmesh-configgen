@@ -5,6 +5,7 @@ import qs from "qs";
 import Options from "./components/Options";
 import Tags from "./components/Tags";
 import Script from "./components/Script";
+import InfoText from "./components/InfoText";
 
 import { fetchVersions, fetchDevices, fetchTemplates } from "./api/github";
 
@@ -124,12 +125,7 @@ function App() {
             />
           )}
         </form>
-		
-		<br /><br />
-		If your install number is over 8000 you need to ask us for a NN (Network Number)
-		<br /><br />
-		You can check your NN <a href="https://docs.nycmesh.net/installs/nn/">here</a>
-		
+        {selectedVersion && selectedDevice && selectedTemplate && <InfoText />}
       </div>
       <div className="w-100 h-100 overflow-y-scroll">
         <Script template={selectedTemplate} tagValues={tagValues} />
