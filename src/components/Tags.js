@@ -34,7 +34,8 @@ function Tags({ tags, tagValues, onChange }) {
 }
 
 function getLabel(tag) {
-  if (tag === "nodenumber") return "network number";
+  if (tag === "nodenumber") return "Network Number";
+  if (tag === "targetnn") return "Target Node NN";
   return tag;
 }
 
