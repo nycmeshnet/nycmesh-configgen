@@ -6,11 +6,12 @@ It is a React app which we currently host at Netlify.
 
 ### Development
 
-Ensure that a recent version of Node.js is installed on your machine.
+Ensure that you start the app in a docker container with Node.js 16 such as `node:16.20.2-bookworm-slim`.
 
-    cd nycmesh-configgen
-    npm install
-    npm start
+    docker run --rm -it --entrypoint /bin/bash -v `pwd`:/nycmesh-configgen node:16.20.2-bookworm-slim
+    cd /nycmesh-configgen
+    yarn install
+    yarn start
 
 This runs the app in development mode and opens a Chrome browser.
 
