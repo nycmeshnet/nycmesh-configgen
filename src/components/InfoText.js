@@ -11,7 +11,7 @@ function InfoText() {
       <p>
         You can check your NN{" "}
         <a
-          href="https://docs.nycmesh.net/installs/nn/"
+          href="https://forms.nycmesh.net/en/nn-assign/"
           target="_"
           className="blue"
         >
