@@ -1,6 +1,10 @@
 import React, { useEffect, useRef } from "react";
 import Mustache from "mustache";
-import { highlightBlock } from "highlight.js";
+import hljs from 'highlight.js';
+import routeros from 'highlight.js/lib/languages/routeros';
+
+// Register only the needed language in Highlight.js
+hljs.registerLanguage('routeros', routeros);
 
 function Script({ template, tagValues }) {
   if (!template || !tagValues) return null;
@@ -20,7 +24,7 @@ function Highlight({ children, className, language }) {
 
   useEffect(() => {
     if (!codeRef.current) return;
-    highlightBlock(codeRef.current);
+    hljs.highlightElement(codeRef.current);
   }, [codeRef, children]);
 
   return (
