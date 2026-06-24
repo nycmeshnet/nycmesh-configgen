@@ -28,8 +28,8 @@ function App() {
     async function asyncFunc() {
       const versions = await fetchVersions();
       setVersions(versions);
-      const paramVersion = versions.filter((v) => v === params.version)[0];
-      setSelectedVersion(paramVersion || versions[0]);
+      // Always select the latest version (ignore URL param)
+      setSelectedVersion(versions[0]);
     }
   }, []);
 
