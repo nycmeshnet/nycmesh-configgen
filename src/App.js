@@ -8,6 +8,7 @@ import Script from "./components/Script";
 import InfoText from "./components/InfoText";
 
 import { fetchVersions, fetchDevices, fetchTemplates } from "./api/github";
+import { RENDER_CONFIG } from "./inputs";
 
 function App() {
   const [versions, setVersions] = useState();
@@ -151,7 +152,7 @@ function downloadConfig(template, tags) {
   const fileName = name
     ? name.replace("nnnn", tags.nodenumber).replace(".tmpl", "")
     : "config.txt";
-  const configText = Mustache.render(content, tags);
+  const configText = Mustache.render(content, tags, {}, RENDER_CONFIG);
   var blob = new Blob([configText], {
     type: "text/csv;charset=utf8;", // Why csv??
   });
