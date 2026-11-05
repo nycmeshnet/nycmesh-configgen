@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import Mustache from "mustache";
 import hljs from 'highlight.js';
 import routeros from 'highlight.js/lib/languages/routeros';
+import { RENDER_CONFIG } from "../inputs";
 
 // Register only the needed language in Highlight.js
 hljs.registerLanguage('routeros', routeros);
@@ -11,7 +12,7 @@ function Script({ template, tagValues }) {
   return (
     <div className="overflow-x-scroll f6">
       <Highlight className="mv0 pa4" language="routeros">
-        {Mustache.render(template.content, tagValues)}
+        {Mustache.render(template.content, tagValues, {}, RENDER_CONFIG)}
       </Highlight>
     </div>
   );
